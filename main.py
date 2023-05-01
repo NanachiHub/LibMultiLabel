@@ -198,7 +198,8 @@ def add_all_arguments(parser):
     )
     parser.add_argument(
         "--predict_out_path",
-        help="Path to the an output file holding top k label results (default: %(default)s)",
+        default="./predictions.txt",
+        help="Path to the output file holding label results (default: %(default)s)",
     )
 
     # auto-test
@@ -253,40 +254,25 @@ def add_all_arguments(parser):
         default="txt",
         help="'svm' for SVM format or 'txt' for LibMultiLabel format (default: %(default)s)",
     )
-    parser.add_argument(
-        "--liblinear_options",
-        type=str,
-        help="Options passed to liblinear (default: %(default)s)",
-    )
+    parser.add_argument("--liblinear_options", type=str, help="Options passed to liblinear (default: %(default)s)")
     parser.add_argument(
         "--linear_technique",
         type=str,
         default="1vsrest",
-        choices=[
-            "1vsrest",
-            "thresholding",
-            "cost_sensitive",
-            "cost_sensitive_micro",
-            "binary_and_multiclass",
-            "tree",
-        ],
+        choices=["1vsrest", "thresholding", "cost_sensitive", "cost_sensitive_micro", "binary_and_multiclass", "tree"],
         help="Technique for linear classification (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--save_positive_predictions",
+        action="store_true",
+        help="Save all the predictions with decision value larger then 0. If used, the save_k_predictions must be set to 0",
     )
 
     # tree options
+    parser.add_argument("--tree_degree", type=int, default=100, help="Degree of the tree (default: %(default)s)")
     parser.add_argument(
-        "--tree_degree",
-        type=int,
-        default=100,
-        help="Degree of the tree (default: %(default)s)",
+        "--tree_max_depth", type=int, default=10, help="Maximum depth of the tree (default: %(default)s)"
     )
-    parser.add_argument(
-        "--tree_max_depth",
-        type=int,
-        default=10,
-        help="Maximum depth of the tree (default: %(default)s)",
-    )
-
     parser.add_argument(
         "-h",
         "--help",

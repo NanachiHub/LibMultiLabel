@@ -1,6 +1,12 @@
-[build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
-build-backend = "setuptools.build_meta"
+[project]
+name = "libmultilabel"
+version = "0.2.0"
+description = "A library for multi-label text classification"
+authors = "LibMultiLabel Team"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+
+[tool.black]
+line-length = 120
+force-exclude = "^/docs*"

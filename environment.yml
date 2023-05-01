@@ -1,0 +1,36 @@
+# Local development dependencies
+name: libmultilabel-dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - pip
+
+  # required dependencies
+  - nltk
+  - pandas > 1.3.0
+  - PyYAML
+  - scikit-learn
+  - torch>=1.13.1
+  - torchmetrics==0.10.3
+  - torchtext>=0.13.0
+  - pytorch-lightning==1.7.7
+  - tqdm
+  - numba
+  - scipy
+  - transformers
+
+  # test dependencies
+  - pytest
+
+  # code checks
+  - black
+  - pre-commit
+  # future
+  # - mypy
+  # - pyupgrade
+  # - ruff
+
+  # pip installation
+  - pip:
+    - liblinear-multicore

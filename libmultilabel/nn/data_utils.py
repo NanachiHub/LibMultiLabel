@@ -105,7 +105,7 @@ def generate_batch(data_batch):
 def get_dataset_loader(
     data,
     classes,
-    device,
+    use_cpu=False,
     max_seq_length=500,
     batch_size=1,
     shuffle=False,
@@ -120,7 +120,7 @@ def get_dataset_loader(
     Args:
         data (list[dict]): List of training instances with index, label, and tokenized text.
         classes (list): List of labels.
-        device (torch.device): One of cuda or cpu.
+        use_cpu (bool, optional): Whether to use CPU or not. Defaults to False.
         max_seq_length (int, optional): The maximum number of tokens of a sample. Defaults to 500.
         batch_size (int, optional): Size of training batches. Defaults to 1.
         shuffle (bool, optional): Whether to shuffle training data before each epoch. Defaults to False.
@@ -143,7 +143,7 @@ def get_dataset_loader(
         shuffle=shuffle,
         num_workers=data_workers,
         collate_fn=generate_batch,
-        pin_memory="cuda" in device.type,
+        pin_memory=False if use_cpu else True,
     )
     return dataset_loader
 

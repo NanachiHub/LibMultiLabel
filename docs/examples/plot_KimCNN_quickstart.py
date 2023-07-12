@@ -15,15 +15,14 @@ from libmultilabel.nn.data_utils import *
 from libmultilabel.nn.nn_utils import *
 
 ######################################################################
-# Setup device
+# Preparation
 # --------------------
-# If you need to reproduce the results, please use the function ``set_seed``.
+# If you need to reproduce the results, please use the function ``setup_everything``.
 # For example, you will get the same result as you always use the seed ``1337``.
 #
-# For initial a hardware device, please use ``init_device`` to assign the hardware device that you want to use.
+# For initial a hardware device, please set accelerator to ``gpu`` or ``cpu``. Use ``gpu`` by default.
 
-set_seed(1337)
-device = init_device()  # use gpu by default
+setup_everything(seed=1337)
 
 ######################################################################
 # Load and tokenize data
@@ -86,7 +85,7 @@ for split in ["train", "val", "test"]:
     loaders[split] = get_dataset_loader(
         data=datasets[split],
         classes=classes,
-        device=device,
+        use_cpu=False,
         max_seq_length=512,
         batch_size=8,
         shuffle=True if split == "train" else False,

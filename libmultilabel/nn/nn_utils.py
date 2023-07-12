@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 import os
+from typing import Literal
 
 import pytorch_lightning as pl
 import torch
@@ -9,29 +12,6 @@ from pytorch_lightning.utilities.seed import seed_everything
 
 from ..nn import networks
 from ..nn.model import Model
-
-
-def init_device(use_cpu=False):
-    """Initialize device to CPU if `use_cpu` is set to True otherwise GPU.
-
-    Args:
-        use_cpu (bool, optional): Whether to use CPU or not. Defaults to False.
-
-    Returns:
-        torch.device: One of cuda or cpu.
-    """
-
-    if not use_cpu and torch.cuda.is_available():
-        # Set a debug environment variable CUBLAS_WORKSPACE_CONFIG to ":16:8" (may limit overall performance) or ":4096:8" (will increase library footprint in GPU memory by approximately 24MiB).
-        # https://docs.nvidia.com/cuda/cublas/index.html
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
-        # https://github.com/pytorch/pytorch/issues/11201
-        torch.multiprocessing.set_sharing_strategy("file_system")
-    logging.info(f"Using device: {device}")
-    return device
 
 
 def init_model(
@@ -200,15 +180,24 @@ def init_trainer(
     return trainer
 
 
-def set_seed(seed):
-    """Set seeds for numpy and pytorch.
+def setup_everything(seed: int | None = None, accelerator: str = "gpu"):
+    """Set random seed for reproducibility and fix any known issues regarding the device.
 
     Args:
         seed (int): Random seed.
+        accelerator (str): Device to use. Defaults to 'gpu'.
     """
 
-    if seed is not None:
-        if seed >= 0:
-            seed_everything(seed=seed, workers=True)
-        else:
-            logging.warning("the random seed should be a non-negative integer")
+    logging.info(f"Using device: {accelerator}")
+
+    if accelerator == "gpu" and torch.cuda.is_available():
+        # Set a debug environment variable CUBLAS_WORKSPACE_CONFIG to ":16:8" (may limit overall performance) or
+        # ":4096:8" (will increase library footprint in GPU memory by approximately 24MiB).
+        # https://docs.nvidia.com/cuda/cublas/index.html
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        logging.info(f"The number of available GPUs: {torch.cuda.device_count()}")
+    elif accelerator == "cpu":
+        # https://github.com/pytorch/pytorch/issues/11201
+        torch.multiprocessing.set_sharing_strategy("file_system")
+
+    seed_everything(seed=seed, workers=True)

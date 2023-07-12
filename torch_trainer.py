@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 from libmultilabel.common_utils import dump_log, is_multiclass_dataset
 from libmultilabel.nn import data_utils
 from libmultilabel.nn.model import Model
-from libmultilabel.nn.nn_utils import init_device, init_model, init_trainer, set_seed
+from libmultilabel.nn.nn_utils import init_model, init_trainer, setup_everything
 
 
 class TorchTrainer:
@@ -42,8 +42,7 @@ class TorchTrainer:
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         # Set up seed & device
-        set_seed(seed=config.seed)
-        self.device = init_device(use_cpu=config.cpu)
+        setup_everything(seed=config.seed, accelerator="cpu" if config.cpu else "gpu")
         self.config = config
 
         # Load pretrained tokenizer for dataset loader
@@ -187,7 +186,7 @@ class TorchTrainer:
         return data_utils.get_dataset_loader(
             data=self.datasets[split],
             classes=self.model.classes,
-            device=self.device,
+            use_cpu=self.config.cpu,
             max_seq_length=self.config.max_seq_length,
             batch_size=self.config.batch_size if split == "train" else self.config.eval_batch_size,
             shuffle=shuffle,

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import numpy as np
 
 __all__ = ["get_metrics", "compute_metrics", "tabulate_metrics", "MetricCollection"]
+
+logger = logging.getLogger(__name__)
 
 
 def _DCG(preds: np.ndarray, target: np.ndarray, k: int = 5) -> np.ndarray:
@@ -260,20 +263,37 @@ def get_metrics(monitor_metrics: list[str], num_classes: int, multiclass: bool =
     """
     if monitor_metrics is None:
         monitor_metrics = []
+
     metrics = {}
-    for metric in monitor_metrics:
-        if re.match("P@\d+", metric):
-            metrics[metric] = Precision(num_classes, average="samples", top_k=int(metric[2:]))
-        elif re.match("R@\d+", metric):
-            metrics[metric] = Recall(num_classes, average="samples", top_k=int(metric[2:]))
-        elif re.match("RP@\d+", metric):
-            metrics[metric] = RPrecision(top_k=int(metric[3:]))
-        elif re.match("NDCG@\d+", metric):
-            metrics[metric] = NDCG(top_k=int(metric[5:]))
-        elif metric in {"Another-Macro-F1", "Macro-F1", "Micro-F1"}:
-            metrics[metric] = F1(num_classes, average=metric[:-3].lower(), multiclass=multiclass)
+    for m in monitor_metrics:
+        metric_at_k = re.match(r"(P|R|RP|NDCG)@(\d+)$", m, re.IGNORECASE)
+
+        if metric_at_k is not None:
+            metric = metric_at_k.groups()[0].upper()
+            top_k = int(metric_at_k.groups()[1])
+
+            if top_k > num_classes:
+                logger.warning(
+                    f"""The top-k value in {m} is larger than the number of classes."
+                    The metric will consider all classes."""
+                )
+
+            if metric == "P":
+                metrics[m] = Precision(num_classes, average="samples", top_k=top_k)
+            elif metric == "R":
+                metrics[m] = Recall(num_classes, average="samples", top_k=top_k)
+            elif metric == "RP":
+                metrics[m] = RPrecision(top_k=top_k)
+            elif metric == "NDCG":
+                metrics[m] = NDCG(top_k=top_k)
         else:
-            raise ValueError(f"invalid metric: {metric}")
+            f_score = re.match(r"(Another-Macro|Macro|Micro)-F1$", m, re.IGNORECASE)
+
+            if f_score is not None:
+                average = f_score.groups()[0]
+                metrics[m] = F1(num_classes, average=average, multiclass=multiclass)
+            else:
+                raise ValueError(f"invalid metric: {m}")
 
     return MetricCollection(metrics)
 

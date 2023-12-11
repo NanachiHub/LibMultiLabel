@@ -18,7 +18,7 @@ def _DCG(preds: np.ndarray, target: np.ndarray, k: int = 5) -> np.ndarray:
     # O(N + klogk) by first partitioning off the k largest elements and then
     # applying quicksort to the subarray.
     row_idx = np.arange(preds.shape[0])[:, np.newaxis]
-    preds_unsorted_idx = np.argpartition(preds, -k)[:, -k:]
+    preds_unsorted_idx = np.argpartition(preds, -np.minimum(k, target.shape[1]))[:, -k:]
     preds_sorted_idx = preds_unsorted_idx[row_idx, np.argsort(-preds[row_idx, preds_unsorted_idx])]
 
     # target sorted by the top k preds in non-increasing order
@@ -83,7 +83,7 @@ class RPrecision:
 
     def update(self, preds: np.ndarray, target: np.ndarray):
         assert preds.shape == target.shape  # (batch_size, num_classes)
-        top_k_idx = np.argpartition(preds, -self.top_k)[:, -self.top_k :]
+        top_k_idx = np.argpartition(preds, -np.minimum(self.top_k, target.shape[1]))[:, -self.top_k :]
         num_relevant = np.take_along_axis(target, top_k_idx, axis=-1).sum(axis=-1)  # (batch_size, )
         self.score += np.nan_to_num(num_relevant / np.minimum(self.top_k, target.sum(axis=-1)), nan=0.0).sum()
         self.num_sample += preds.shape[0]
@@ -116,9 +116,9 @@ class Precision:
 
     def update(self, preds: np.ndarray, target: np.ndarray):
         assert preds.shape == target.shape  # (batch_size, num_classes)
-        top_k_idx = np.argpartition(preds, -self.top_k)[:, -self.top_k :]
+        top_k_idx = np.argpartition(preds, -np.minimum(self.top_k, target.shape[1]))[:, -self.top_k :]
         num_relevant = np.take_along_axis(target, top_k_idx, -1).sum()
-        self.score += num_relevant / self.top_k
+        self.score += num_relevant / np.minimum(self.top_k, target.shape[1])
         self.num_sample += preds.shape[0]
 
     def compute(self) -> float:
@@ -149,7 +149,7 @@ class Recall:
 
     def update(self, preds: np.ndarray, target: np.ndarray):
         assert preds.shape == target.shape  # (batch_size, num_classes)
-        top_k_idx = np.argpartition(preds, -self.top_k)[:, -self.top_k :]
+        top_k_idx = np.argpartition(preds, -np.minimum(self.top_k, target.shape[1]))[:, -self.top_k :]
         num_relevant = np.take_along_axis(target, top_k_idx, -1).sum(axis=-1)  # (batch_size, )
         # zero label instances treated as 0, to be consistent with torchmetrics
         self.score += np.nan_to_num(num_relevant / target.sum(axis=-1), nan=0.0).sum()
@@ -266,11 +266,11 @@ def get_metrics(monitor_metrics: list[str], num_classes: int, multiclass: bool =
 
     metrics = {}
     for m in monitor_metrics:
-        metric_at_k = re.match(r"(P|R|RP|NDCG)@(\d+)$", m, re.IGNORECASE)
+        metric_at_k = re.match(r"(p|r|rp|ndcg)@(\d+)$", m, re.IGNORECASE)
 
         if metric_at_k is not None:
-            metric = metric_at_k.groups()[0].upper()
-            top_k = int(metric_at_k.groups()[1])
+            metric = metric_at_k.group(1).lower()
+            top_k = int(metric_at_k.group(2))
 
             if top_k > num_classes:
                 logger.warning(
@@ -278,22 +278,22 @@ def get_metrics(monitor_metrics: list[str], num_classes: int, multiclass: bool =
                     The metric will consider all classes."""
                 )
 
-            if metric == "P":
+            if metric == "p":
                 metrics[m] = Precision(num_classes, average="samples", top_k=top_k)
-            elif metric == "R":
+            elif metric == "r":
                 metrics[m] = Recall(num_classes, average="samples", top_k=top_k)
-            elif metric == "RP":
+            elif metric == "rp":
                 metrics[m] = RPrecision(top_k=top_k)
-            elif metric == "NDCG":
+            elif metric == "ndcg":
                 metrics[m] = NDCG(top_k=top_k)
         else:
             f_score = re.match(r"(Another-Macro|Macro|Micro)-F1$", m, re.IGNORECASE)
 
             if f_score is not None:
-                average = f_score.groups()[0]
+                average = f_score.group(1).lower()
                 metrics[m] = F1(num_classes, average=average, multiclass=multiclass)
             else:
-                raise ValueError(f"invalid metric: {m}")
+                logger.warning(f"Invalid metric: {m}. This metric will be skipped.")
 
     return MetricCollection(metrics)
 

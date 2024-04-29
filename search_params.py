@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import ray.train as ray_train
 import yaml
-from ray import tune
+from ray import train, tune
 from ray.tune.schedulers import ASHAScheduler
 
 from libmultilabel.common_utils import AttributeDict, timer
@@ -45,7 +45,7 @@ def train_libmultilabel_tune(config, datasets, classes, word_dict):
         save_checkpoints=True,
     )
     val_score = trainer.train()
-    return {f"val_{config.val_metric}": val_score}
+    train.report({f"val_{config.val_metric}": val_score}, checkpoint=checkpoint)
 
 
 def load_config_from_file(config_path):
@@ -333,29 +333,33 @@ def main():
     else:
         scheduler = None
 
-    # Fix issue: https://github.com/ray-project/ray/issues/28197
-    import ray
-
-    ray.init(runtime_env={"env_vars": {"PL_DISABLE_FORK": "1"}})
-
     exp_name = "{}_{}_{}".format(
         config.data_name,
         Path(config.config).stem if config.config else config.model_name,
         datetime.now().strftime("%Y%m%d%H%M%S"),
     )
-    analysis = tune.run(
-        tune.with_parameters(train_libmultilabel_tune, **data),
-        search_alg=init_search_algorithm(config.search_alg, metric=f"val_{config.val_metric}", mode=config.mode),
-        scheduler=scheduler,
-        local_dir=config.result_dir,
-        num_samples=config.num_samples,
-        resources_per_trial={"cpu": config.cpu_count, "gpu": config.gpu_count},
-        progress_reporter=reporter,
-        config=config,
-        name=exp_name,
+
+    trainable_with_resources = tune.with_resources(
+        train_libmultilabel_tune, {"cpu": config.cpu_count, "gpu": config.gpu_count}
     )
+    tuner = tune.Tuner(
+        trainable_with_resources,
+        tune_config=tune.TuneConfig(
+            num_samples=config.num_samples,
+            scheduler=scheduler,
+            search_alg=init_search_algorithm(config.search_alg, metric=f"val_{config.val_metric}", mode=config.mode),
+        ),
+        param_space=search_space,
+        run_config=RunConfig(storage_path=config.result_dir, name=exp_name, progress_reporter=reporter),
+    )
+
+    results = tuner.fit()
+
+    best_trial = results.get_best_result(metric=f"val_{config.val_metric}", mode=config.mode).config
+    # ray.init(runtime_env={"env_vars": {"PL_DISABLE_FORK": "1"}})
+
     # Save best model after parameter search.
-    best_trial = analysis.get_best_trial(metric=f"val_{config.val_metric}", mode=config.mode, scope="all")
+    # best_trial = analysis.get_best_trial(metric=f"val_{config.val_metric}", mode=config.mode, scope="all")
     retrain_best_model(exp_name, best_trial.config, best_trial.local_path, retrain=not config.no_retrain)
 
 
